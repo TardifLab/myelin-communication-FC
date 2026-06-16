@@ -1,0 +1,20 @@
+# MATLAB editor/autosave files
+*.asv
+*.m~
+*.autosave
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+__MACOSX/
+
+# Generated outputs
+results/*
+!results/.gitkeep
+data/example/
+
+# Generated figures and archives
+*.fig
+*.png
+*.pdf
+*.zip

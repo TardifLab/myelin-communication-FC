@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the corresponding manuscript and this repository."
+repo title: "myelin-communication-FC"
+type: software
+authors:
+  - family-names: Nelson
+    given-names: Mark C.
+license: GPL-3.0-only
+keywords:
+  - connectomics
+  - structural connectivity
+  - functional connectivity
+  - myelin
+  - network communication
+  - spectral analysis
+
+manuscript title: "White Matter Myelin Shapes Macroscale Functional Connectivity Through Integrative Communication"
+doi: https://doi.org/10.64898/2026.03.22.713515

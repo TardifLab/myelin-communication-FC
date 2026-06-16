@@ -1,0 +1,6 @@
+network,file,source_label,selected_index,selected_gamma,n_communities,n_excluded_nodes,equivalent_indices,source_partition_field
+caliber,caliber_community_results.mat,COMMITscl,74,0.7656375465346317,8,0,74,cic_sc_8
+MTsat,mtsat_community_results.mat,MTsat-tm,115,2.0439436556004997,7,8,115,cic_mc_7
+gratio,gratio_community_results.mat,gratio-ts,118,2.215109554119124,9,2,118;120,cic_mc2_9
+delay,delay_community_results.mat,delays (s),58,1.1869602773807346,5,0,58,cic_delay_5
+rate,rate_community_results.mat,Rate,117,1.799660227750016,7,0,117,cic_rate_7
