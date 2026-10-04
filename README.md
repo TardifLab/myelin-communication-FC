@@ -200,6 +200,99 @@ cfg_run.effect_mode = 'total';
 
 Nested-regression significance is assessed with an analytic nested F-test. Upper-tail probabilities are computed directly; values below floating-point resolution are stored as MATLAB's `realmin` rather than literal zero.
 
+#### Multiple-comparison correction for the main regression analyses
+
+`examples/run_full_replication.m` now saves raw Stage A results for all four
+communication-model pairs and all five conditions, even when Stage B is
+disabled. It then applies Benjamini–Hochberg (BH) FDR using
+`bics_fdr_saved_results`. The settings at the top of the script are:
+
+```matlab
+paper_myelin_predictors = {'MTsat','gratio','delay'};
+run_fdr = true;
+fdr_alpha = 0.05;
+```
+
+Remove `'delay'` for the two-predictor sensitivity analysis. The main-regression
+directory includes the selected predictor names and a unique run identifier.
+Each invocation starts a new main-regression run; it does not automatically
+resume a partially completed run. Other replication output directories retain
+their existing behavior.
+
+Correction families are separate for each experimental condition, each spatial
+scale, and individual versus combined communication models. Each family
+includes every analyzed FC target and location, irrespective of the subset
+displayed in the main figures. With the paper's eight FC targets, seven RSNs,
+and 400 nodes, the families are:
+
+| Spatial scale | Individual models | Routing–diffusion combinations |
+|---|---|---|
+| Global | 4 × 8 = 32 | 4 × 8 = 32 |
+| RSN | 4 × 8 × 28 = 896 | 4 × 8 × 28 = 896 |
+| Node | 4 × 8 × 400 = 12,800 | 4 × 8 × 400 = 12,800 |
+
+Individual models are SPE, NE, CMY, and DE. Combined models are SPE–CMY,
+SPE–DE, NE–CMY, and NE–DE. Repeated individual-model outputs across pair files
+must agree exactly and are counted only once. RSN hypotheses include the seven
+within-network and 21 between-network blocks; mirrored entries are not counted
+twice. The main workflow uses `model_modes='all'`, `model_levels=[1 2]`, and
+`use_lower_only=true`. The correction helper rejects multiple predictor-menu
+specifications (`M>1`); the supplementary `model_modes='single'` analyses remain
+raw and require a separate, explicitly defined correction plan.
+
+The rejection rule is adjusted p < `fdr_alpha`. Missing p-values occupy a family
+slot as p=1 internally, retain NaN adjusted values, and are not rejected. Stored
+zero p-values are accepted with a warning; FDR cannot recover numerical
+precision lost in an earlier fit. FDR also does not repair violations of the
+assumptions underlying the supplied analytic F-test p-values.
+
+The `FDR` directory contains:
+
+- `BICS_FDR_results.mat`: structure `F`, retaining raw effects/p-values and
+  adding `Q_all`/`H_all` and `global_q`, `ntwk_q`, `node_q` with rejection masks.
+- `BICS_FDR_family_summary.csv`: counts and rejections for every family.
+- `BICS_FDR_global_tests.csv`: global effects, raw p, adjusted p, and rejection.
+- `BICS_FDR_global_<condition>.csv`, `BICS_FDR_network_<condition>.csv`, and
+  `BICS_FDR_node_<condition>.csv`: one copy of each unique model/location test,
+  with raw `deltaR2` and `p`, adjusted `q`, `reject_fdr`, and the display-only
+  `deltaR2_fdr` column. Failed/missing tests are NaN in the display column.
+
+Raw estimates are never overwritten. Obtain separate analysis/display copies:
+
+```matlab
+z = load(fullfile(main_out,'FDR','BICS_FDR_results.mat'),'F');
+F = z.F;
+[Delta_raw,stats_raw] = bics_fdr_view(F,1,'total','raw');
+[Delta_display,stats_display] = bics_fdr_view(F,1,'total','fdr');
+```
+
+The pair order is SPE–CMY, SPE–DE, NE–CMY, NE–DE. Use the FDR view for
+thresholded bars, RSN heatmaps and surfaces. Non-rejected values are masked with
+NaN, not zero; plotting code must render missing values explicitly. Use the
+raw view for descriptive block averages, S–A correlations, and spin tests.
+The helper changes which estimates are displayed, not their retained values.
+
+To repeat correction without rerunning the fits:
+
+```matlab
+F = bics_fdr_saved_results(main_out, ...
+    'FCLabels',mats.fc_labels,'RSNLabels',pinfo.clabels_short, ...
+    'OutputDir',fullfile(main_out,'FDR_recheck'),'Overwrite',false);
+analysis.write_fdr_tables(F,fullfile(main_out,'FDR_recheck'));
+```
+
+Existing correction outputs are protected. Choose a new output directory for
+each recheck. Run `test_bics_fdr_saved_results` after `setup_paths` for synthetic
+checks of BH answers, family sizes, duplicate handling, raw preservation,
+display masks, unique-model CSV export, and invalid-input guards.
+
+**Spin inference is separate.** The nested-regression `node_q` fields are not
+adjusted spin p-values. `sa_corr_nodal` uses ordinary correlation p-values and
+does not implement spatial null inference. Run the manuscript's separate
+hemisphere-constrained spin workflow on unfiltered nodal effects and correct
+those spin p-values using its own declared families before adding significance
+markers. This FDR integration does not add or rerun spin tests.
+
 ### Step 5: Run supplemental individual-predictor models
 
 The replication script separately runs:
@@ -272,10 +365,16 @@ results/paper_replication/
   edges_schaefer400.csv
   communication/
   regression/
-    main_results/
-      global/<condition>/
-      network/<condition>/
-      node/<condition>/
+    main_results_MTsat_gratio_delay/
+      run_<timestamp>_<unique-id>/
+        results_total_tmpSPE-CMY.mat
+        results_total_tmpSPE-DE.mat
+        results_total_tmpNE-CMY.mat
+        results_total_tmpNE-DE.mat
+        global/<condition>/
+        network/<condition>/
+        node/<condition>/
+        FDR/
     supplementary_results/
       global/main-effect/
       network/main-effect/
@@ -309,6 +408,11 @@ results = run_all(cfg_run);
 ```
 
 For replication of all paper conditions and pairs, use `examples/run_full_replication.m` instead.
+
+`run_all` returns raw regression results: one pair alone cannot supply the
+paper's across-model FDR families. Use the full replication workflow to apply
+that correction. The raw RSN CSV writer exports only one triangle including
+within-network blocks for the symmetric undirected analysis.
 
 ## Custom data
 

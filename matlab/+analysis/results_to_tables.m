@@ -2,9 +2,9 @@ function T = results_to_tables(stats_all, fc_labels)
 %RESULTS_TO_TABLES Convert +bicsdual stats structs into tables.
 levels = fieldnames(stats_all);
 levels = levels(~strcmp(levels,'meta'));
-global_rows = {};
-network_rows = {};
-node_rows = {};
+global_rows = cell(0,5);
+network_rows = cell(0,7);
+node_rows = cell(0,6);
 for li = 1:numel(levels)
     level = levels{li};
     S = stats_all.(level);
@@ -21,8 +21,10 @@ for li = 1:numel(levels)
             if isfield(S,'ntwk_deltaR2')
                 [nr, nc, ~, ~] = size(S.ntwk_deltaR2);
                 if nr == numel(labels)
-                    for i = 1:i
-                        for j = 1:nc
+                    % One triangle INCLUDING within-RSN blocks. Symmetric
+                    % mirrored entries are the same hypothesis, not new tests.
+                    for i = 1:nc
+                        for j = 1:i
                             network_rows(end+1,:) = {level, labels{m}, fc, i, j, S.ntwk_deltaR2(m,i,j,f), S.ntwk_p(m,i,j,f)}; %#ok<AGROW>
                         end
                     end

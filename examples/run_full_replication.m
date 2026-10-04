@@ -5,6 +5,7 @@
 %   1. Load and export analysis-ready edge data
 %   2. Compute communication models and edgewise correlations
 %   3. Run Stage A nested regressions for all tested model pairs/conditions
+%      Save raw outputs and apply the paper's across-model BH-FDR families
 %   4. Run supplemental individual-myelin-predictor regressions
 %   5. Load the exact paper community partitions
 %   6. Run the comprehensive spectral analysis
@@ -33,6 +34,11 @@ run_spectral_analysis              = true;
 % Optional expensive settings
 run_stageB = false;
 community_rerun_networks = {'MTsat'};
+
+% Main-paper nested F-test correction. 'all' fits these predictors jointly.
+paper_myelin_predictors = {'MTsat','gratio','delay'};
+run_fdr = true;
+fdr_alpha = 0.05;
 
 %% SETUP
 if ~isempty(bct_dir)
@@ -109,7 +115,8 @@ end
 
 %% STAGE A NESTED REGRESSION: MAIN COMBINED-MYELIN ANALYSES
 % One route-diffusion pair is processed per call. The output writer places
-% CSVs under spatial-scale/condition subdirectories.
+% CSVs under spatial-scale/condition subdirectories. All raw pair results are
+% saved for FDR post-processing; correction is outside the two fitting loops.
 model_pairs = [
     1 5   % SPE-CMY
     1 6   % SPE-DE
@@ -127,14 +134,42 @@ conditions = {
 };
 
 if run_main_regressions
-    main_out = fullfile(output_root, 'regression', 'main_results');
+    if run_fdr
+        assert(cfg_data.use_lower_only, ...
+            'Paper FDR requires unique undirected RSN blocks (use_lower_only=true).');
+        assert(~isempty(which('bics_fdr_saved_results')) && ...
+            ~isempty(which('analysis.write_fdr_tables')), ...
+            'Install both FDR helpers and analysis.write_fdr_tables before running.');
+        validateattributes(fdr_alpha,{'numeric'},{'scalar','finite','>',0,'<',1});
+    end
+    condition_keys = {'int_none','int_caliber','int_ed','int_both','total'};
+    predictor_tag = strjoin(paper_myelin_predictors,'_');
+    main_parent = fullfile(output_root,'regression',['main_results_' predictor_tag]);
+    if ~exist(main_parent,'dir'), mkdir(main_parent); end
+    [~,run_id] = fileparts(tempname(main_parent));
+    main_out = fullfile(main_parent,['run_' datestr(now,'yyyymmdd_HHMMSS') '_' run_id]);
+    mkdir(main_out);
+    fprintf('\nNEW MAIN-REGRESSION OUTPUT: %s\n',main_out);
+
+    % These four source files collect all conditions in the exact paper order.
+    % FDR is applied only after BOTH fitting loops have completed.
+    pair_labels = cell(1,size(model_pairs,1));
+    paperS = cell(1,size(model_pairs,1));
+    for p = 1:size(model_pairs,1)
+        pair_labels{p} = strjoin(cfg_data.communication_models(model_pairs(p,:)),'-');
+        paperS{p} = struct();
+        paperS{p}.meta = struct('label_comm_models',pair_labels{p}, ...
+            'CC',model_pairs(p,:),'myelin_predictors',{{paper_myelin_predictors}}, ...
+            'base_predictors',{{'binary','caliber'}},'fc_labels',{mats.fc_labels}, ...
+            'completed_conditions',{{}},'run_complete',false);
+    end
 
     for c = 1:size(conditions,1)
         for p = 1:size(model_pairs,1)
             cfg_run = cfg_data;
             cfg_run.out_dir = main_out;
             cfg_run.dual_bics_pairs = model_pairs(p,:);
-            cfg_run.myelin_predictors = {'MTsat','gratio','delay'};
+            cfg_run.myelin_predictors = paper_myelin_predictors;
             cfg_run.model_modes = 'all';
             cfg_run.model_levels = [1 2];
             cfg_run.interaction = conditions{c,2};
@@ -150,6 +185,16 @@ if run_main_regressions
             R = analysis.run_nested_regression(cm, mats, pinfo, cfg_run);
             analysis.write_bics_tables(R, cfg_run);
 
+            % Always save raw Stage A outputs, even when Stage B is disabled.
+            S = paperS{p};
+            S.(condition_keys{c}) = R;
+            S.meta.completed_conditions{end+1} = condition_keys{c};
+            S.meta.run_complete = c==size(conditions,1);
+            S.meta.updated = datestr(now,30);
+            paperS{p} = S;
+            source_file = fullfile(main_out,['results_total_tmp' pair_labels{p} '.mat']);
+            save_paper_source(source_file,S);
+
             if run_stageB
                 mat_dir = fullfile(main_out, 'stageB_mat');
                 if ~exist(mat_dir,'dir'), mkdir(mat_dir); end
@@ -158,6 +203,16 @@ if run_main_regressions
                     'R', 'cfg_run', '-v7.3');
             end
         end
+    end
+
+    if run_fdr
+        F = bics_fdr_saved_results(main_out, ...
+            'FilePrefix','results_total_tmp','PairLabels',pair_labels, ...
+            'Conditions',condition_keys,'Alpha',fdr_alpha, ...
+            'FCLabels',mats.fc_labels,'RSNLabels',pinfo.clabels_short, ...
+            'OutputDir',fullfile(main_out,'FDR'),'Save',true,'Overwrite',false);
+        analysis.write_fdr_tables(F,fullfile(main_out,'FDR'));
+        disp(F.family_summary);
     end
 end
 
@@ -225,3 +280,17 @@ if run_spectral_analysis
 end
 
 fprintf('\nReplication workflow complete. Outputs: %s\n', output_root);
+
+function save_paper_source(filename,S)
+% Replace only the current run's checkpoint after its temporary save succeeds.
+tmp = [tempname(fileparts(filename)) '.mat'];
+cleanup = onCleanup(@()delete_temp(tmp));
+save(tmp,'S','-v7.3');
+[ok,msg] = movefile(tmp,filename,'f');
+assert(ok,'Replication:SaveFailed','%s',msg);
+clear cleanup
+end
+
+function delete_temp(path)
+if isfile(path), delete(path); end
+end
