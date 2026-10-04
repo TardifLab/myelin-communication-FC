@@ -72,7 +72,8 @@ assert(height(TG)==16 && height(TN)==48 && height(TV)==64);
 assert(all(TN.rsn_j<=TN.rsn_i));
 assert(sum(TG.reject_fdr)==5 && sum(TN.reject_fdr)==15 && sum(TV.reject_fdr)==20);
 assert(all(isnan(TV.deltaR2_fdr(~TV.reject_fdr))));
-assert(isequal(TV.deltaR2_fdr(TV.reject_fdr),TV.deltaR2(TV.reject_fdr)));
+keep = TV.reject_fdr == 1; % Logical mask, whether imported as numeric or logical
+assert(isequal(TV.deltaR2_fdr(keep),TV.deltaR2(keep)));
 for m=1:8
     select=strcmp(string(TG.communication_model),F.meta.model_order{m});
     assert(sum(select)==2);
