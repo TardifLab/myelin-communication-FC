@@ -21,7 +21,7 @@ for li = 1:numel(levels)
             if isfield(S,'ntwk_deltaR2')
                 [nr, nc, ~, ~] = size(S.ntwk_deltaR2);
                 if nr == numel(labels)
-                    for i = 1:nc
+                    for i = 1:i
                         for j = 1:nc
                             network_rows(end+1,:) = {level, labels{m}, fc, i, j, S.ntwk_deltaR2(m,i,j,f), S.ntwk_p(m,i,j,f)}; %#ok<AGROW>
                         end
