@@ -14,6 +14,7 @@ if diffusion_mask(iR)==1, tmp=iR; iR=iD; iD=tmp; end
 
 U = unpack_useCM(ALLX);
 ED = U.ED; if isempty(ED), error('Please set U.ED in unpack_useCM().'); end
+canonical_base_predictors(tests);
 Base_route_X = { U.binary{iR}, U.caliber{iR}, ED };
 Base_diff_X  = { U.binary{iD}, U.caliber{iD}, ED };
 Base_both_X  = { U.binary{iR}, U.caliber{iR}, ED, U.binary{iD}, U.caliber{iD} };
