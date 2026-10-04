@@ -27,6 +27,18 @@ interact_at         = getopt(tests, 'interact_at', 'both');                 % 'L
 effect_mode         = getopt(tests, 'effect_mode', 'incremental');          % 'total'|'incremental'
 
 
+assert(any(strcmpi(effect_mode,{'incremental','total'})), 'Invalid effect_mode.');
+assert(any(strcmpi(interaction,{'none','caliber','ed','both'})), 'Invalid interaction.');
+assert(any(strcmpi(interact_at,{'l1','l2','both'})), 'interact_at must be L1, L2 or both.');
+assert(~isempty(levels) && all(ismember(levels,[1 2])), 'Supported levels are 1 and 2.');
+assert(all(ismember(lower(string(modes)),["single","pairs","all"])), 'Invalid modes.');
+% The legacy RD helper splits at half the combined width. Mixed-width menus
+% cannot be split safely; fail instead of silently assigning the wrong side.
+if any(levels==2) && ~strcmpi(interaction,'none') && ~strcmpi(interact_at,'l1')
+    assert(numel(unique(lower(string(modes))))==1, ...
+        'bicsdual:MixedMenus','Use one grouping mode per interacting L2 run.');
+end
+
 [R_Xlist, R_labels] = myelin_pack(U, iR, mp);
 [D_Xlist, D_labels] = myelin_pack(U, iD, mp);
 [R_models, R_mlabels] = build_models_strict(R_Xlist, R_labels, modes);
@@ -124,7 +136,7 @@ if any(levels==1)
         o2 = o;
         o2 = overlay_opts(o2, struct('label_model', sprintf('L1-Route TOTAL{%s}', lower(interaction))));
         % IMPORTANT: DO NOT pass o2.reduced_models here
-        if isfield(o2,'reduced_models'); o2 = rmfield(o2, {'reduced_models','reduced_labels'}); end
+	o2 = rmfield(o2,intersect(fieldnames(o2),{'reduced_models','reduced_labels'}));
         [SI1r, EL1r, PR1r] = bicsdual.fit_BICS_stageB2(ALLY, base_route, tests_total, pinfo, Delta_all.L1_route, o2);
         % label_out = o2.label_model;
     end
@@ -188,7 +200,7 @@ if any(levels==1)
         o2 = o;
         o2 = overlay_opts(o2, struct('label_model', sprintf('L1-Diff TOTAL{%s}', lower(interaction))));
         % IMPORTANT: DO NOT pass o2.reduced_models here
-        if isfield(o2,'reduced_models'); o2 = rmfield(o2, {'reduced_models','reduced_labels'}); end
+	o2 = rmfield(o2,intersect(fieldnames(o2),{'reduced_models','reduced_labels'}));
         [SI1d, EL1d, PR1d] = bicsdual.fit_BICS_stageB2(ALLY, base_diff, tests_total, pinfo, Delta_all.L1_diff, o2);
     end
     SI_all.L1_diff = SI1d; elasticity_all.L1_diff = EL1d; pert_all.L1_diff = PR1d;
@@ -254,7 +266,7 @@ if any(levels>=2)
         o2 = o;
         o2 = overlay_opts(o2, struct('label_model', sprintf('L2-Both TOTAL{%s}', lower(interaction))));
         % IMPORTANT: ensure we do NOT pass o2.reduced_models here
-        if isfield(o2,'reduced_models'); o2 = rmfield(o2, {'reduced_models','reduced_labels'}); end
+	o2 = rmfield(o2,intersect(fieldnames(o2),{'reduced_models','reduced_labels'}));
         [SI2, EL2, PR2] = bicsdual.fit_BICS_stageB2(ALLY, base_both, tests_total, pinfo, Delta_all.L2_both, o2);
     end
     SI_all.L2_both = SI2; elasticity_all.L2_both = EL2; pert_all.L2_both = PR2;
