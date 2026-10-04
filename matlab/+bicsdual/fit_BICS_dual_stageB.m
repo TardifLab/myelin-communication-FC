@@ -19,7 +19,7 @@ Base_route_X = { U.binary{iR}, U.caliber{iR}, ED };
 Base_diff_X  = { U.binary{iD}, U.caliber{iD}, ED };
 Base_both_X  = { U.binary{iR}, U.caliber{iR}, ED, U.binary{iD}, U.caliber{iD} };
 
-mp                  = getopt(tests,'myelin_predictors',{'myln1','myln2','myln3'});
+mp                  = getopt(tests,'myelin_predictors',{'MTsat','gratio','delay'});
 modes               = getopt(tests,'modes',{'single','pairs','all'});
 levels              = getopt(tests,'levels',[1 2]);
 interaction         = getopt(tests, 'interaction', 'none');                 % 'none'|'caliber'|'ed'|'both'

@@ -37,6 +37,10 @@ elasticity_mode = getopt(opts,'elasticity_mode','zrow');                    % 'z
 Kdir            = getopt(opts,'elasticity_dirs',16);                        % number of random directions (zrow)
 
 
+validateattributes(nperm,{'numeric'},{'scalar','integer','>=',2});
+validateattributes(eps_s,{'numeric'},{'scalar','positive','<',1});
+validateattributes(Kdir,{'numeric'},{'scalar','integer','positive'});
+
 % Unpack base
 if isfield(base,'Xcells'), BASE = base.Xcells;
 else, BASE = {base.Xb, base.Xc, base.Xd}; end
@@ -59,6 +63,8 @@ assert(size(blk_ij,1) == size(Delta_block_true,1), 'Block count mismatch.');
 
 B = size(blk_ij,1);
 M = numel(models);
+assert(size(Delta_block_true,2)==M && size(Delta_block_true,3)==Nfc, ...
+    'bicsdual:DeltaShape','Stage A dimensions do not match Stage B.');
 
 perm_mean = zeros(B,M,Nfc);
 perm_std  = zeros(B,M,Nfc);
@@ -96,9 +102,19 @@ for f = 1:Nfc
             end
           % ------------------------------------------------------------------
 
-            if isempty(y_blk) || numel(y_blk) < (size(Xf_blk,2) + 5)
-                PM(b,m)=0; PS(b,m)=0; SI(b,m)=0; EL(b,m)=0; continue;
+	   if isempty(y_blk) || numel(y_blk) < (size(Xf_blk,2) + 5)
+                PM(b,m)=NaN; PS(b,m)=NaN; SI(b,m)=NaN; EL(b,m)=NaN; continue;
             end
+
+            observed=safe_compare3(Xb_blk,Xf_blk,y_blk);
+            supplied=Delta_block_true(b,m,f);
+            if ~isfinite(observed) && ~isfinite(supplied)
+                PM(b,m)=NaN; PS(b,m)=NaN; SI(b,m)=NaN; EL(b,m)=NaN; continue;
+            end
+            assert(isfinite(observed) && isfinite(supplied) && abs(observed-supplied)<=1e-8, ...
+                'bicsdual:StageMismatch', ...
+                'Stage A and B empirical DeltaR2 disagree. Rerun A with this package and matching inputs/options.');
+
 
             % Permutations
             rng(seed0 + f*1e6 + b*1e3 + m, 'twister');
@@ -108,14 +124,14 @@ for f = 1:Nfc
                     for p=1:nperm
                         idx = randperm(numel(y_blk));
                         Xb_perm = Xb_blk(idx,:); Xf_perm = Xf_blk(idx,:);
-                        dR2 = safe_compare3(Xb_perm, Xf_perm, y_blk); if ~isfinite(dR2), dR2=0; end
+                        dR2 = safe_compare3(Xb_perm, Xf_perm, y_blk); if ~isfinite(dR2), error('bicsdual:InvalidNull','Undefined permutation fit.'); end
                         null_vals(p) = dR2;
                     end
                 case 'xspec'
                     for p=1:nperm
                         idx = randperm(numel(y_blk));
                         Xf_perm = Xf_blk; Xf_perm(:,spec_cols)=Xf_perm(idx,spec_cols);
-                        dR2 = safe_compare3(Xb_blk, Xf_perm, y_blk); if ~isfinite(dR2), dR2=0; end
+                        dR2 = safe_compare3(Xb_blk, Xf_perm, y_blk); if ~isfinite(dR2), error('bicsdual:InvalidNull','Undefined permutation fit.'); end
                         null_vals(p) = dR2;
                     end
                 case 'yresid'
@@ -125,17 +141,21 @@ for f = 1:Nfc
                     for p=1:nperm
                         idx = randperm(numel(eres));
                         y_perm = yhat_r + eres(idx);
-                        dR2 = safe_compare3(Xb_blk, Xf_blk, y_perm); if ~isfinite(dR2), dR2=0; end
+                        dR2 = safe_compare3(Xb_blk, Xf_blk, y_perm); if ~isfinite(dR2), error('bicsdual:InvalidNull','Undefined permutation fit.'); end
                         null_vals(p) = dR2;
                     end
                 otherwise
                     error('Unknown perm_mode %s', perm_mode);
             end
 
-            mu = mean(null_vals); sd = std(null_vals) + eps;
+            mu = mean(null_vals); sd = std(null_vals);
             PM(b,m)=mu; PS(b,m)=sd;
             d_true = Delta_block_true(b,m,f);
-            SI(b,m) = (d_true - mu) / sd;
+	    if sd>eps(max(1,abs(mu)))
+                SI(b,m) = (d_true - mu) / sd;
+            else
+                SI(b,m) = NaN; % Degenerate null: no defined standardized index.
+            end
 
         % ----- (B) Elasticity on SPEC only --------------------------------------
         % Modes:
@@ -215,6 +235,8 @@ for f = 1:Nfc
     perm_mean(:,:,f)=PM; perm_std(:,:,f)=PS; SI_block(:,:,f)=SI; elasticity(:,:,f)=EL;
 end
 
-pert = struct('perm_mean',perm_mean,'perm_std',perm_std,'nperm',nperm,'eps_scale',eps_s);
+pert = struct('perm_mean',perm_mean,'perm_std',perm_std,'nperm',nperm,'eps_scale',eps_s, ...
+    'perm_mode',perm_mode,'rng_seed',seed0,'elasticity_mode',elasticity_mode, ...
+    'solver_version','svd_projection_20261001');
 % -------------------------------------------------------------------------
 end
