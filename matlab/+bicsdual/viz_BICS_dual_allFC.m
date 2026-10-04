@@ -88,7 +88,8 @@ for r = 1:nlev
     if matchClim
         clim(axL, [0 Dmax]);                                    % match clims across FC
     else
-        CLIM=ceil(prctile(Dm(Dm~=0),95)*100)/100;               % FC-specific clims
+	vv=Dm(isfinite(Dm)&Dm~=0);
+        if isempty(vv), CLIM=1; else, CLIM=max(.01,ceil(prctile(vv,95)*100)/100); end               % FC-specific clims
         clim(axL, [0 CLIM]);
     end
     colormap(axL, cm_r2);                                       % per-axes colormap
@@ -122,6 +123,7 @@ end
 
 % ---- Figure A: heatmaps (rows = FC, cols = {ΔR², SI})
 nlev2 = Nfc-nlev;
+if nlev2==0, return; end
 figs.heatmaps2 = myfig([labels_CMs ', ' labels_int ', effect-' labels_effect ', ' nice{usek}],getopt(opts,'figpos_meq1',[-1995 54 563 300+260*nlev]));
 tl = tiledlayout(nlev2,2,'TileSpacing','compact','Padding','compact');
 
@@ -142,7 +144,8 @@ for r = 1:nlev2
     if matchClim
         clim(axL, [0 Dmax]);                                    % match clims across FC
     else
-        CLIM=ceil(prctile(Dm(Dm~=0),95)*100)/100;               % FC-specific clims
+	vv=Dm(isfinite(Dm)&Dm~=0);
+        if isempty(vv), CLIM=1; else, CLIM=max(.01,ceil(prctile(vv,95)*100)/100); end               % FC-specific clims
         clim(axL, [0 CLIM]);
     end
     colormap(axL, cm_r2);                                       % per-axes colormap

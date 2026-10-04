@@ -92,6 +92,8 @@ Meach = cellfun(@(f) size(stats_all.(f).node_deltaR2,1), levels);
 M_eq1 = all(Meach==1);
 
 % Correlations
+sa_axis=sa_axis(:); % corr requires matching column orientation.
+allsurfh={}; % Defined even when make_surfaces=false.
 out = struct; out.r = struct(); out.p = struct(); out.fig_surf = gobjects(0);
 for L = 1:numel(levels)
     f = levels{L};
@@ -188,14 +190,14 @@ if make_surfs
         % Determine CMAX if not given
         if isempty(surf_cmax)
             vals = abs(D(:)); vals = vals(isfinite(vals));
-            if isempty(vals), CMAX = 1; else, CMAX = ceil(prctile(vals,95)*10)/10; end
+            if isempty(vals), CMAX = 1; else, CMAX = max(.1,ceil(prctile(vals,95)*10)/10); end
         else
             CMAX = surf_cmax;
         end
     end
 
     % Plot each requested band
-    out.fig_surf = gobjects(nb/4,1); 
+    out.fig_surf = gobjects(0,1); % Figure count comes from the surface helper.
     ttl = sprintf('%s (%s, %s): %s — %s', labels_CMs, labels_int, labels_effect, surf_title, pretty_level(show_level));
     Hcx = plot_conn_surf(D, pinfo, 'cortex', ylbl(surf_bands), ttl);
     if match_clim
