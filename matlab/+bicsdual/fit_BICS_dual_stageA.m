@@ -57,7 +57,7 @@ end
 
 % Build myelin menus per CM based on tests.myelin_predictors
 mp                  = getopt(tests,'myelin_predictors',{'MTsat','gratio','delay'});
-base_predictors     = getopt(tests,'base_predictors',{'caliber','binary'});
+base_predictors     = canonical_base_predictors(tests);
 modes               = getopt(tests,'modes',{'single','pairs','all'});
 levels              = getopt(tests,'levels',[1 2]);
 comm_model_labels   = getopt(tests,'label_comm_models','R-D');
@@ -336,8 +336,9 @@ end
 % % % end
 
 % Attach top-level label
-stats_all.meta = struct('label_comm_models', comm_model_labels, ... 
+stats_all.meta = struct('label_comm_models', comm_model_labels, ...
                         'CC',[iR iD], ...
+			'base_predictors',{base_predictors}, ...
                         'effect_mode',effect_mode, ...
                         'interaction_label', ['int-' interaction]);
 % -------------------------------------------------------------------------
